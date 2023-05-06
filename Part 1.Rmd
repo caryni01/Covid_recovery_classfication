@@ -282,7 +282,9 @@ resamp = resamples(list(
   gam = gam_model,
   mars = mars_model,
   knn = knn_model,
-  gbm = gbm_model
+  gbm = gbm_model,
+  cart = cart_model,
+  rf = rf_model
 ))
 # plot resampling rmse
 bwplot(resamp, metric = "RMSE")
