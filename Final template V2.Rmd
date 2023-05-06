@@ -34,15 +34,15 @@ index_numer = c(2, 6, 7, 8, 11, 12)
 dat[, index_factor]= lapply(dat[, index_factor], as.factor)
 # extract 2000+2000 samples for analysis
 set.seed(2604)
-dat_one <- dat[sample(1:10000, 2000),]
+dat_1 <- dat[sample(1:10000, 2000),]
 set.seed(3508)
-dat_two <- dat[sample(1:10000, 2000),]
+dat_2 <- dat[sample(1:10000, 2000),]
 # merge the dataset for unique values
 # create a new variable length_ind with 30 days as threshold 
 dat = rbind(dat_1, dat_2) %>% 
   unique() %>% 
   mutate(
-    length_ind = ifelse(recovery_time>30, 1, 0),
+    length_ind = ifelse(recovery_time>30, "yes", "no"),
     length_ind = as.factor(length_ind)
   ) 
 
