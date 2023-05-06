@@ -1,0 +1,291 @@
+---
+title: "Covid Recovery Analysis - Figures and outputs"
+author: "Cary Ni"
+output: 
+  pdf_document :
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(AppliedPredictiveModeling)
+library(caret)
+library(glmnet)
+library(mgcv)
+library(earth)
+library(gbm)
+library(corrplot)
+library(gridExtra)
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.align = 'center',
+  out.width = "70%",
+  strip.white = TRUE,
+  warning = FALSE)
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+```
+
+```{r}
+# load the external dataset 
+load("recovery.rdata")
+# change the variable type based on the reference
+index_factor = c(3, 4, 5,  9, 10, 13, 14, 15)
+index_numer = c(2, 6, 7, 8, 11, 12)
+dat[, index_factor]= lapply(dat[, index_factor], as.factor)
+# extract 2000+2000 samples for analysis
+set.seed(2604)
+dat_one <- dat[sample(1:10000, 2000),]
+set.seed(3508)
+dat_two <- dat[sample(1:10000, 2000),]
+# merge the dataset for unique values
+# create a new variable length_ind with 30 days as threshold 
+dat = rbind(dat_1, dat_2) %>% 
+  unique() %>% 
+  mutate(
+    length_ind = ifelse(recovery_time>30, 1, 0),
+    length_ind = as.factor(length_ind)
+  ) 
+
+# seperate training set and test set
+set.seed(2023)
+train_row = createDataPartition(y = dat$recovery_time, p = 0.8, list = FALSE)
+```
+
+```{r train/test split for primary analysis}
+# create covariates matrix for training and test
+predictors_train = model.matrix(recovery_time ~ ., data = dat[train_row, -c(1,17)])[, -1]
+predictors_test = model.matrix(recovery_time ~ ., data = dat[-train_row, -c(1,17)])[, -1]
+# create response vector for training and test
+response_train = dat[train_row, -c(1,17)]$recovery_time
+response_test = dat[-train_row, -c(1,17)]$recovery_time
+```
+
+```{r train/test split for secondary analysis}
+# create covariates matrix for training and test
+predictors_train_new = model.matrix(length_ind ~ ., data = dat[train_row, -c(1,16)])[, -1]
+predictors_test_new = model.matrix(length_ind ~ ., data = dat[-train_row, -c(1,16)])[, -1]
+# create response vector for training and test
+response_train_new = dat[train_row, -c(1,16)]$length_ind
+response_test_new = dat[-train_row, -c(1,16)]$length_ind
+```
+
+## Exploratory analysis and data visualization
+
+```{r}
+# summary statistics
+dat %>% 
+  skimr::skim() %>% 
+  knitr::knit_print()
+```
+
+### Visualize potential relationship between reponse variable and numeric predictors
+
+```{r}
+# simple visualization of the numeric data
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col <- rgb(.2, .4, .2, .5)
+theme1$plot.symbol$pch <- 16
+theme1$plot.line$col <- rgb(.8, .1, .1, 1)
+theme1$plot.line$lwd <- 2
+theme1$strip.background$col <- rgb(.0, .2, .6, .2)
+trellis.par.set(theme1)
+featurePlot(x = dat[, index_numer],
+            y = dat$recovery_time, 
+            plot = "scatter", 
+            type = c("p", "smooth"),
+            layout = c(3, 2))
+
+```
+
+### Visualize potential relationship between reponse variable and categorical predictors
+
+```{r}
+# simple visualization of the categorical data
+par(mfrow=c(2,4))
+myColors = c(rgb(0.1,0.1,0.7,0.5) , rgb(0.8,0.1,0.3,0.6), rgb(0.8,0.8,0.3,0.5),
+             rgb(0.4,0.2,0.3,0.6))
+
+boxplot(recovery_time ~ gender, data = dat, xlab = "gender", col = myColors, ylim=c(0, 150))
+boxplot(recovery_time ~ race, data = dat, xlab = "race", col = myColors, ylim=c(0, 150))
+boxplot(recovery_time ~ smoking, data = dat, xlab = "smoking status", col = myColors, ylim=c(0, 150))
+boxplot(recovery_time ~ hypertension, data = dat, xlab = "hypertension", col = myColors, ylim=c(0, 150))
+boxplot(recovery_time ~ diabetes, data = dat, xlab = "diabetes", col = myColors, ylim=c(0, 150))
+boxplot(recovery_time ~ vaccine, data = dat, xlab = "vaccine", col = myColors, ylim=c(0, 150))
+boxplot(recovery_time ~ severity, data = dat, xlab = "diabetes", col = myColors, ylim=c(0, 150))
+boxplot(recovery_time ~ study, data = dat, xlab = "study", col = myColors, ylim=c(0, 150))
+```
+
+### Correlation plot to check collinearity between covariates (based on training data) 
+
+```{r}
+cor(predictors_train[, c(1, 8, 9, 10, 13, 14)]) %>% corrplot(
+  method = "circle", type = "full", 
+  addCoef.col = 1, number.font =0.5,
+  tl.col="black", tl.srt=90, tl.cex = 0.5,
+  insig = "blank", diag=FALSE, number.cex = .3)
+```
+
+## Model Training
+
+### Ordinary Least square
+
+```{r}
+# set train method
+ctrl_1 = trainControl(method = "repeatedcv", number = 10, repeats = 5)
+# build the linear least squared model with caret
+set.seed(1)
+lm_model = train(predictors_train, response_train, method = "lm", trControl = ctrl_1)
+par(mfrow = c(2, 2))
+plot(lm_model$finalModel)
+```
+
+### Elastic net regression
+
+```{r}
+set.seed(1)
+# build elastic net model with caret
+elnet_model = train(predictors_train, response_train, 
+                    method = "glmnet",
+                    tuneGrid = expand.grid(alpha = seq(0, 1, length=21),
+                                           lambda = exp(seq(-2, 8, length=50))),
+                    trControl = ctrl_1)
+myCol<- rainbow(21)
+myPar <- list(superpose.symbol = list(col = myCol),
+superpose.line = list(col = myCol))
+plot(elnet_model, par.settings = myPar)
+# show the best lambda and alpha combination with lowest cv rmse
+elnet_model$bestTune
+```
+
+### Partial least squares
+
+```{r}
+set.seed(1)
+pls_model = train(predictors_train, response_train,
+                method = "pls",
+                # 18 variables in total
+                tuneGrid = data.frame(ncomp = 1:18), 
+                trControl = ctrl_1,
+                preProcess = c("center", "scale"))
+ggplot(pls_model, highlight = TRUE) + 
+  scale_x_continuous(breaks = seq(0,20,by=1))
+```
+
+### Generalized Additive Models (GAM)
+
+```{r}
+set.seed(1)
+tune_Grid = data.frame(method = "GCV.Cp", select = c(TRUE, FALSE))
+gam_model = train(predictors_train, response_train, 
+                   method = "gam",
+                  tuneGrid = tune_Grid,
+                  trControl = ctrl_1)
+par(mfrow = c(3, 2))
+plot(gam_model$finalModel, shade = TRUE)
+```
+
+### Multivariate adaptive regression spline model (MARS)
+
+```{r}
+set.seed(1)
+# Set tuning parameters (18 as maximum number of terms taken since only 18 predictors are used)
+mars_grid = expand.grid(degree = 1:3, nprune = 2:18)
+# Fit MARS model
+mars_model = train(predictors_train, response_train, 
+                   method = "earth",
+                   tuneGrid = mars_grid,
+                   trControl = ctrl_1)
+# Plot the model
+plot(mars_model)
+summary(mars_model)
+```
+
+### K-Nearest Neighbors (KNN)
+
+```{r}
+set.seed(1)
+knn_grid = expand.grid(k = seq(5, 15, by = 1))
+knn_model = train(predictors_train, response_train,
+                  method = "knn",
+                  preProcess = c("center", "scale"),
+                  trControl = ctrl_1,
+                  tuneGrid = knn_grid)
+knn_model$bestTune
+```
+
+### Generalized Boosted Regression
+
+```{r}
+set.seed(1)
+# setting number of trees, depth, learning rate, and default leaves number
+# learning rate = max(0.01, 0.1*(min(1, nl/10000)))
+gbm_grid = expand.grid(
+  n.trees = c(seq(100, 1000, by = 100)),
+  interaction.depth = c(1, 2, 3), 
+  shrinkage = 0.02,
+  n.minobsinnode = 5
+)
+gbm_model = train(predictors_train, response_train,
+                  method = "gbm",
+                 preProcess = c("center", "scale"),
+                 trControl = ctrl_1,
+                 tuneGrid = gbm_grid,
+                 verbose = FALSE)
+plot(gbm_model)
+```
+
+### Models comparsion based on cross validation error
+
+```{r}
+# compare model performance through sampling method
+resamp = resamples(list(
+  lm = lm_model,
+  enet = elnet_model,
+  pls = pls_model,
+  gam = gam_model,
+  mars = mars_model,
+  knn = knn_model,
+  gbm = gbm_model
+))
+# plot resampling rmse
+bwplot(resamp, metric = "RMSE")
+summary(resamp) 
+```
+
+## Results
+
+### Test Mean Squared Error
+```{r}
+# get test mse
+predict_value = predict(gbm_model, newdata = predictors_test)
+test_mse = mean((predict_value - response_test)^2)
+test_mse %>% knitr::knit_print()
+```
+
+### Variable importance plots 
+
+```{r}
+par(mfrow = c(1, 1))
+var_df = summary(gbm_model,
+        cBars = 10,
+        las = 2)  
+var_df %>% 
+  as.data.frame() %>% 
+  select(-var) %>% 
+  knitr::kable()
+```
+
+### Partial dependance plots
+
+```{r}
+p1 = pdp::partial(gbm_model, pred.var = c("bmi"), 
+                  grid.resolution = 10) %>% autoplot()
+p2 = pdp::partial(gbm_model, pred.var = c("vaccine1"), 
+                  grid.resolution = 10) %>% autoplot()
+p3 = pdp::partial(gbm_model, pred.var = c("severity1"), 
+                  grid.resolution = 10) %>% autoplot()
+p4 = pdp::partial(gbm_model, pred.var = c("age"), 
+                  grid.resolution = 10) %>% autoplot()
+
+grid.arrange(arrangeGrob(p1, p4, ncol = 2), arrangeGrob(p2, p3, ncol = 2))
+```
