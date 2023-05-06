@@ -257,9 +257,11 @@ rpart.plot(rpart_model$finalModel)
 ```{r}
 set.seed(1)
 # build a random forest model
-rf_grid <- expand.grid(mtry = 1:16,
+# mtry: Since mtry should be set to the square root of the total number of predictors for classification problems, and the total number of predictors divided by three. With 15 predictors, the optimal tuning range for mtry would be between 3 and 5.
+ 
+rf_grid <- expand.grid(mtry = 3:5,
                        splitrule = "variance",
-                       min.node.size = 1:6)
+                       min.node.size = 2:5)
 
 rf_model <- train(recovery_time ~ .,
                 dat[train_row, -c(1,17)],
