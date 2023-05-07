@@ -1,0 +1,23 @@
+---
+title: "Covid Recovery Analysis - Figures and outputs"
+author: "Cary Ni"
+output: 
+  pdf_document :
+    latex_engine: xelatex
+---
+
+### Exploratory analysis
+
+```{r}
+klaR::partimat(length_ind ~ age+bmi+SBP+LDL,
+         data = dat, method = "lda")
+
+table(dat$length_ind, dat$study) %>% barplot(main = "Number of cases seperated by 30 days in recovery by Study Groups",
+                                             xlab = "Class",
+                                             col = c("White","Black"))
+legend("topright",
+       c("<= 30 days","> 30 days"),
+       fill = c("White","Black"),
+       cex = 0.7)
+```
+
