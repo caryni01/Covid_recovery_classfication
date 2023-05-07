@@ -16,10 +16,8 @@ library(earth)
 library(gbm)
 library(corrplot)
 library(gridExtra)
-<<<<<<< HEAD
 library(kernlab)
-=======
->>>>>>> 568f685c86d03078e1fe60b01f6142eeb2eccf3f
+
 knitr::opts_chunk$set(
   echo = TRUE,
   fig.align = 'center',
@@ -64,18 +62,12 @@ response_train_new = dat[train_row, -c(1,16)]$length_ind
 response_test_new = dat[-train_row, -c(1,16)]$length_ind
 ```
 
-<<<<<<< HEAD
-
 ### Penalized logistic regression
-=======
-### Adaptive boosting classfier
->>>>>>> 568f685c86d03078e1fe60b01f6142eeb2eccf3f
 
 ```{r}
 ctrl_2 = trainControl(method = "cv",
                      classProbs = TRUE,
                      summaryFunction = twoClassSummary)
-<<<<<<< HEAD
 set.seed(2)
 glmnGrid = expand.grid(.alpha = seq(0, 1, length = 21),
                         .lambda = exp(seq(-10, -2, length = 20)))
@@ -133,7 +125,6 @@ nb_model = train(x = predictors_train_new,
 plot(nb_model)
 ```
 
-
 ### Classification Tree
 
 ```{r}
@@ -149,17 +140,12 @@ ggplot(rpart_model, highlight = TRUE)
 ### Adaptive boosting classfier
 
 ```{r}
-=======
->>>>>>> 568f685c86d03078e1fe60b01f6142eeb2eccf3f
 # set tunning parameters
 # learning rate selection criterion : max(0.01, 0.1*(min(1, nl/10000)))
 gbmA_grid = expand.grid(n.trees = c(seq(100, 1200, by = 100)),
                          interaction.depth = 1:3,
-<<<<<<< HEAD
                          shrinkage = c(0.01, 0.03),
-=======
                          shrinkage = c(0.01, 0.05),
->>>>>>> 568f685c86d03078e1fe60b01f6142eeb2eccf3f
                          n.minobsinnode = 5)
 set.seed(2)
 gbmA_model = train(predictors_train_new, response_train_new,
@@ -172,7 +158,6 @@ gbmA_model = train(predictors_train_new, response_train_new,
 ggplot(gbmA_model, highlight = TRUE)
 ```
 
-<<<<<<< HEAD
 ### Support vector classifier with linear kernel
 
 ```{r}
@@ -184,7 +169,6 @@ svml_model = train(predictors_train_new, response_train_new,
                    trControl = ctrl_2,
                    verbose = FALSE)
 plot(svml_model, highlight = TRUE, xTrans = log)
-svml_model$bestTune
 ```
 
 ### Support vector classifier with radial kernel
@@ -220,66 +204,29 @@ resamp = resamples(list(
   rpart = rpart_model
 ))
 bwplot(resamp, metric = "ROC")
-=======
-
-### Models comparsion based on cross validation error
-
-```{r}
-# compare model performance through sampling method
-resamp = resamples(list(
-  lm = lm_model,
-  enet = elnet_model,
-  pls = pls_model,
-  gam = gam_model,
-  mars = mars_model,
-  knn = knn_model,
-  gbm = gbm_model
-))
-# plot resampling rmse
-bwplot(resamp, metric = "RMSE")
->>>>>>> 568f685c86d03078e1fe60b01f6142eeb2eccf3f
-summary(resamp) 
 ```
 
 ## Results
 
-<<<<<<< HEAD
-### The performance of selected model
 ```{r}
-# find test accurancy of the final model
+# find test Accurancy of the final model
 postResample(predict(gbmA_model, predictors_test_new),
              response_test_new) %>% knitr::kable()
-=======
-### Test Mean Squared Error
-```{r}
-# get test mse
-predict_value = predict(gbm_model, newdata = predictors_test)
-test_mse = mean((predict_value - response_test)^2)
-test_mse %>% knitr::knit_print()
->>>>>>> 568f685c86d03078e1fe60b01f6142eeb2eccf3f
 ```
 
 ### Variable importance plots 
 
 ```{r}
 par(mfrow = c(1, 1))
-<<<<<<< HEAD
 var_df_2 = summary(gbmA_model,
         cBars = 10,
         las = 2)  
-var_df_2 %>% 
-=======
-var_df = summary(gbm_model,
-        cBars = 10,
-        las = 2)  
 var_df %>% 
->>>>>>> 568f685c86d03078e1fe60b01f6142eeb2eccf3f
   as.data.frame() %>% 
   select(-var) %>% 
   knitr::kable()
 ```
 
-<<<<<<< HEAD
 ### Results intepretation
 
 ```{r}
@@ -295,20 +242,3 @@ pdp::partial(gbmA_model, pred.var = c("SBP","LDL"),
            main = "Partial dependence plot by SBP and LDL") 
 
 ```
-
-=======
-### Partial dependance plots
-
-```{r}
-p1 = pdp::partial(gbm_model, pred.var = c("bmi"), 
-                  grid.resolution = 10) %>% autoplot()
-p2 = pdp::partial(gbm_model, pred.var = c("vaccine1"), 
-                  grid.resolution = 10) %>% autoplot()
-p3 = pdp::partial(gbm_model, pred.var = c("severity1"), 
-                  grid.resolution = 10) %>% autoplot()
-p4 = pdp::partial(gbm_model, pred.var = c("age"), 
-                  grid.resolution = 10) %>% autoplot()
-
-grid.arrange(arrangeGrob(p1, p4, ncol = 2), arrangeGrob(p2, p3, ncol = 2))
-```
->>>>>>> 568f685c86d03078e1fe60b01f6142eeb2eccf3f
