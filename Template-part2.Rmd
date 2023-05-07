@@ -16,6 +16,7 @@ library(earth)
 library(gbm)
 library(corrplot)
 library(gridExtra)
+library(kernlab)
 knitr::opts_chunk$set(
   echo = TRUE,
   fig.align = 'center',
@@ -60,17 +61,91 @@ response_train_new = dat[train_row, -c(1,16)]$length_ind
 response_test_new = dat[-train_row, -c(1,16)]$length_ind
 ```
 
-### Adaptive boosting classfier
+
+### Penalized logistic regression
 
 ```{r}
 ctrl_2 = trainControl(method = "cv",
                      classProbs = TRUE,
                      summaryFunction = twoClassSummary)
+set.seed(2)
+glmnGrid = expand.grid(.alpha = seq(0, 1, length = 21),
+                        .lambda = exp(seq(-10, -2, length = 20)))
+
+glmn_model <- train(x = predictors_train_new,
+                    y = response_train_new,
+                    method = "glmnet",
+                    tuneGrid = glmnGrid,
+                    metric = "ROC",
+                    trControl = ctrl_2)
+
+myCol <- rainbow(25)
+myPar <- list(superpose.symbol = list(col = myCol),
+              superpose.line = list(col = myCol))
+plot(glmn_model, par.settings = myPar, xTrans = function(x) log(x))
+```
+
+### Multivariate adaptive regression splines classifier (MARS)
+
+```{r}
+set.seed(2)
+mars_model = train(x = predictors_train_new,
+                   y = response_train_new,
+                   method = "earth",
+                   tuneGrid = expand.grid(degree = 1:3,nprune = 2:20),
+                   metric = "ROC",
+                   trControl = ctrl_2)
+plot(mars_model)
+```
+
+### Quadratic discriminant analysis (QDA)
+
+```{r}
+set.seed(2)
+qda_model = train(x = predictors_train_new,
+                   y = response_train_new,
+                   method = "qda",
+                   metric = "ROC",
+                   trControl = ctrl_2)
+```
+
+### Naive Bayes Classifer
+
+```{r}
+nbGrid = expand.grid(usekernel = c(FALSE,TRUE),
+                     fL = 1,
+                     adjust = seq(.2, 3, by = .2))
+set.seed(2)
+nb_model = train(x = predictors_train_new,
+                 y = response_train_new,
+                 method = "nb",
+                 tuneGrid = nbGrid,
+                 metric = "ROC",
+                 trControl = ctrl_2)
+plot(nb_model)
+```
+
+
+### Classification Tree
+
+```{r}
+set.seed(2)
+rpart_model = train(predictors_train_new, response_train_new,
+                    method = "rpart",
+                    tuneGrid = data.frame(cp = exp(seq(-6,-3, len = 50))),
+                    trControl = ctrl_2,
+                    metric = "ROC")
+ggplot(rpart_model, highlight = TRUE)
+```
+
+### Adaptive boosting classfier
+
+```{r}
 # set tunning parameters
 # learning rate selection criterion : max(0.01, 0.1*(min(1, nl/10000)))
 gbmA_grid = expand.grid(n.trees = c(seq(100, 1200, by = 100)),
                          interaction.depth = 1:3,
-                         shrinkage = c(0.01, 0.05),
+                         shrinkage = c(0.01, 0.03),
                          n.minobsinnode = 5)
 set.seed(2)
 gbmA_model = train(predictors_train_new, response_train_new,
@@ -83,59 +158,91 @@ gbmA_model = train(predictors_train_new, response_train_new,
 ggplot(gbmA_model, highlight = TRUE)
 ```
 
-
-### Models comparsion based on cross validation error
+### Support vector classifier with linear kernel
 
 ```{r}
-# compare model performance through sampling method
+set.seed(2)
+svml_model = train(predictors_train_new, response_train_new,
+                   method = "svmLinear",
+                   # setting tunning parameters
+                   tuneGrid = data.frame(C = exp(seq(-5,2,len=50))),
+                   trControl = ctrl_2,
+                   verbose = FALSE)
+plot(svml_model, highlight = TRUE, xTrans = log)
+svml_model$bestTune
+```
+
+### Support vector classifier with radial kernel
+
+```{r cache=TRUE}
+# setting tunning parameters
+svmr_grid = expand.grid(C = exp(seq(-5,2,len=20)),
+                        sigma = exp(seq(-8,-3,len=10)))
+# tunes over both cost and sigma
+set.seed(2)
+svmr_model = train(predictors_train_new, response_train_new,
+                   method = "svmRadialSigma",
+                   tuneGrid = svmr_grid,
+                   trControl = ctrl_2,
+                   verbose = FALSE)
+myCol = rainbow(25)
+myPar = list(superpose.symbol = list(col = myCol),
+             superpose.line = list(col = myCol))
+ggplot(svmr_model, highlight = TRUE, par.settings = myPar)
+```
+
+## Models Comparsion
+
+```{r}
 resamp = resamples(list(
-  lm = lm_model,
-  enet = elnet_model,
-  pls = pls_model,
-  gam = gam_model,
+  glmn = glmn_model,
   mars = mars_model,
-  knn = knn_model,
-  gbm = gbm_model
+  qda = qda_model,
+  nb = nb_model,
+  svmr = svmr_model,
+  svml = svml_model,
+  gbmA = gbmA_model,
+  rpart = rpart_model
 ))
-# plot resampling rmse
-bwplot(resamp, metric = "RMSE")
+bwplot(resamp, metric = "ROC")
 summary(resamp) 
 ```
 
 ## Results
 
-### Test Mean Squared Error
+### The performance of selected model
 ```{r}
-# get test mse
-predict_value = predict(gbm_model, newdata = predictors_test)
-test_mse = mean((predict_value - response_test)^2)
-test_mse %>% knitr::knit_print()
+# find test accurancy of the final model
+postResample(predict(gbmA_model, predictors_test_new),
+             response_test_new) %>% knitr::kable()
 ```
 
 ### Variable importance plots 
 
 ```{r}
 par(mfrow = c(1, 1))
-var_df = summary(gbm_model,
+var_df_2 = summary(gbmA_model,
         cBars = 10,
         las = 2)  
-var_df %>% 
+var_df_2 %>% 
   as.data.frame() %>% 
   select(-var) %>% 
   knitr::kable()
 ```
 
-### Partial dependance plots
+### Results intepretation
 
 ```{r}
-p1 = pdp::partial(gbm_model, pred.var = c("bmi"), 
-                  grid.resolution = 10) %>% autoplot()
-p2 = pdp::partial(gbm_model, pred.var = c("vaccine1"), 
-                  grid.resolution = 10) %>% autoplot()
-p3 = pdp::partial(gbm_model, pred.var = c("severity1"), 
-                  grid.resolution = 10) %>% autoplot()
-p4 = pdp::partial(gbm_model, pred.var = c("age"), 
-                  grid.resolution = 10) %>% autoplot()
+pdp::partial(gbmA_model, pred.var = c("bmi"),
+             grid.resolution = 10) %>% 
+  autoplot(train = predictors_train_new, rug = TRUE, 
+           main = "Partial dependence plot by BMI") 
 
-grid.arrange(arrangeGrob(p1, p4, ncol = 2), arrangeGrob(p2, p3, ncol = 2))
+pdp::partial(gbmA_model, pred.var = c("SBP","LDL"),
+             chull = TRUE,
+             grid.resolution = 10) %>% 
+  autoplot(train = predictors_train_new, rug = TRUE,legend.title = "Probability in Logit",
+           main = "Partial dependence plot by SBP and LDL") 
+
 ```
+
