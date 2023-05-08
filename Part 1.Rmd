@@ -16,6 +16,7 @@ library(earth)
 library(gbm)
 library(corrplot)
 library(gridExtra)
+library(klaR)
 knitr::opts_chunk$set(
   echo = TRUE,
   fig.align = 'center',
@@ -76,6 +77,19 @@ response_test_new = dat[-train_row, -c(1,16)]$length_ind
 dat %>% 
   skimr::skim() %>% 
   knitr::knit_print()
+```
+
+```{r}
+klaR::partimat(length_ind ~ age+bmi+SBP+LDL,
+         data = dat, method = "lda")
+
+table(dat$length_ind, dat$study) %>% barplot(main = "Number of cases seperated by 30 days in recovery by Study Groups",
+                                             xlab = "Class",
+                                             col = c("White","Black"))
+legend("topright",
+       c("<= 30 days","> 30 days"),
+       fill = c("White","Black"),
+       cex = 0.7)
 ```
 
 ### Visualize potential relationship between reponse variable and numeric predictors
@@ -289,8 +303,12 @@ resamp = resamples(list(
   rf = rf_model
 ))
 # plot resampling rmse
+parallelplot(resamp, metric = "RMSE")
+bwplot(resamp, metric = "Rsquared")
 bwplot(resamp, metric = "RMSE")
 summary(resamp) 
+
+
 ```
 
 ## Results
