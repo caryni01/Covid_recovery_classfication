@@ -17,6 +17,8 @@ library(gbm)
 library(corrplot)
 library(gridExtra)
 library(klaR)
+library(rpart.plot)
+library(dplyr)
 knitr::opts_chunk$set(
   echo = TRUE,
   fig.align = 'center',
@@ -275,7 +277,7 @@ set.seed(1)
  
 rf_grid <- expand.grid(mtry = 3:5,
                        splitrule = "variance",
-                       min.node.size = 2:5)
+                       min.node.size = 3:6)
 
 rf_model <- train(recovery_time ~ .,
                 dat[train_row, -c(1,17)],
@@ -299,7 +301,7 @@ resamp = resamples(list(
   mars = mars_model,
   knn = knn_model,
   gbm = gbm_model,
-  cart = cart_model,
+  cart = rpart_model,
   rf = rf_model
 ))
 # plot resampling rmse
@@ -328,9 +330,10 @@ par(mfrow = c(1, 1))
 var_df = summary(gbm_model,
         cBars = 10,
         las = 2)  
+
 var_df %>% 
   as.data.frame() %>% 
-  select(-var) %>% 
+  dplyr::select(-var) %>% 
   knitr::kable()
 ```
 
