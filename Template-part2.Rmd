@@ -1,6 +1,5 @@
 ---
-title: "Covid Recovery Analysis - Figures and outputs"
-author: "Cary Ni"
+title: "Covid Recovery Analysis - Secondary Analysis"
 output: 
   pdf_document :
     latex_engine: xelatex
@@ -18,8 +17,9 @@ library(corrplot)
 library(gridExtra)
 library(kernlab)
 
+
 knitr::opts_chunk$set(
-  echo = TRUE,
+  echo = FALSE,
   fig.align = 'center',
   out.width = "70%",
   strip.white = TRUE,
@@ -145,7 +145,6 @@ ggplot(rpart_model, highlight = TRUE)
 gbmA_grid = expand.grid(n.trees = c(seq(100, 1200, by = 100)),
                          interaction.depth = 1:3,
                          shrinkage = c(0.01, 0.03),
-                         shrinkage = c(0.01, 0.05),
                          n.minobsinnode = 5)
 set.seed(2)
 gbmA_model = train(predictors_train_new, response_train_new,
@@ -160,7 +159,7 @@ ggplot(gbmA_model, highlight = TRUE)
 
 ### Support vector classifier with linear kernel
 
-```{r}
+```{r results='hide',fig.keep='all'}
 set.seed(2)
 svml_model = train(predictors_train_new, response_train_new,
                    method = "svmLinear",
@@ -173,7 +172,7 @@ plot(svml_model, highlight = TRUE, xTrans = log)
 
 ### Support vector classifier with radial kernel
 
-```{r cache=TRUE}
+```{r results='hide',fig.keep='all', cache=TRUE}
 # setting tunning parameters
 svmr_grid = expand.grid(C = exp(seq(-5,2,len=20)),
                         sigma = exp(seq(-8,-3,len=10)))
@@ -190,7 +189,7 @@ myPar = list(superpose.symbol = list(col = myCol),
 ggplot(svmr_model, highlight = TRUE, par.settings = myPar)
 ```
 
-## Models Comparsion
+## Models Comparsion based on Area Under Curves
 
 ```{r}
 resamp = resamples(list(
@@ -206,7 +205,7 @@ resamp = resamples(list(
 bwplot(resamp, metric = "ROC")
 ```
 
-## Results
+## Final model performance on test dataset
 
 ```{r}
 # find test Accurancy of the final model
@@ -214,31 +213,44 @@ postResample(predict(gbmA_model, predictors_test_new),
              response_test_new) %>% knitr::kable()
 ```
 
-### Variable importance plots 
+### Variable importance plots of the final model
 
 ```{r}
 par(mfrow = c(1, 1))
 var_df_2 = summary(gbmA_model,
         cBars = 10,
         las = 2)  
-var_df %>% 
+var_df_2 %>% 
   as.data.frame() %>% 
   select(-var) %>% 
   knitr::kable()
 ```
 
-### Results intepretation
+### Final Model intepretation
 
 ```{r}
 pdp::partial(gbmA_model, pred.var = c("bmi"),
              grid.resolution = 10) %>% 
   autoplot(train = predictors_train_new, rug = TRUE, 
-           main = "Partial dependence plot by BMI") 
+           main = "Partial dependence plot by BMI") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 pdp::partial(gbmA_model, pred.var = c("SBP","LDL"),
              chull = TRUE,
              grid.resolution = 10) %>% 
-  autoplot(train = predictors_train_new, rug = TRUE,legend.title = "Probability in Logit",
-           main = "Partial dependence plot by SBP and LDL") 
+  autoplot(train = predictors_train_new, rug = TRUE,legend.title = "Probability of long recovery time in Logit",
+           main = "Partial dependence plot by SBP and LDL") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ```
+
+```{r}
+gbmA_model %>%
+  pdp::partial(pred.var = "bmi",
+          grid.resolution = 100,
+          ice = TRUE) %>%
+  autoplot(train = predictors_train_new, alpha = .1) +
+  ggtitle("ICE plot for bmi versus probability of long recovery (>30) in logit") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
