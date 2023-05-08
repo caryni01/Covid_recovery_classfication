@@ -1,5 +1,4 @@
 ---
-title: "Covid Recovery Analysis - Secondary Analysis"
 output: 
   pdf_document :
     latex_engine: xelatex
@@ -21,11 +20,13 @@ library(kernlab)
 knitr::opts_chunk$set(
   echo = FALSE,
   fig.align = 'center',
-  out.width = "60%",
+  out.width = "65%",
   strip.white = TRUE,
   warning = FALSE)
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
+
+# Secondary Analysis -- Figures and outputs
 
 ```{r}
 # load the external dataset 
@@ -60,6 +61,18 @@ predictors_test_new = model.matrix(length_ind ~ ., data = dat[-train_row, -c(1,1
 # create response vector for training and test
 response_train_new = dat[train_row, -c(1,16)]$length_ind
 response_test_new = dat[-train_row, -c(1,16)]$length_ind
+```
+
+### Exploratory analysis for classification
+
+```{r}
+# summary statistics
+dat %>% 
+  skimr::skim() %>% 
+  knitr::knit_print()
+# LDA plots
+klaR::partimat(length_ind ~ age+bmi+SBP+LDL,
+         data = dat, method = "lda")
 ```
 
 ### Penalized logistic regression
