@@ -232,6 +232,7 @@ rpart_model <- train(recovery_time ~ . ,
 
 # create a plot of the complexity parameter selection
 ggplot(rpart_model, highlight = TRUE) # highlight the optimal cp value
+rpart_model$bestTune
 
 # create a plot of the tree using the rpart.plot() function
 rpart.plot(rpart_model$finalModel)
@@ -340,6 +341,7 @@ p4 = pdp::partial(gbm_model, pred.var = c("age"),
 
 grid.arrange(arrangeGrob(p1, p4, ncol = 2), arrangeGrob(p2, p3, ncol = 2))
 ```
+
 ### Individual Conditional Expectation (ICE) plot
 
 ```{r}
