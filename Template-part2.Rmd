@@ -21,7 +21,7 @@ library(kernlab)
 knitr::opts_chunk$set(
   echo = FALSE,
   fig.align = 'center',
-  out.width = "70%",
+  out.width = "60%",
   strip.white = TRUE,
   warning = FALSE)
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
@@ -139,7 +139,7 @@ ggplot(rpart_model, highlight = TRUE)
 
 ### Adaptive boosting classfier
 
-```{r}
+```{r cache=TRUE}
 # set tunning parameters
 # learning rate selection criterion : max(0.01, 0.1*(min(1, nl/10000)))
 gbmA_grid = expand.grid(n.trees = c(seq(100, 1200, by = 100)),
@@ -159,7 +159,7 @@ ggplot(gbmA_model, highlight = TRUE)
 
 ### Support vector classifier with linear kernel
 
-```{r results='hide',fig.keep='all'}
+```{r results='hide',fig.keep='all', cache=TRUE}
 set.seed(2)
 svml_model = train(predictors_train_new, response_train_new,
                    method = "svmLinear",
