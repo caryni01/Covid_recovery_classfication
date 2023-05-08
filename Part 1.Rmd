@@ -74,9 +74,6 @@ response_test_new = dat[-train_row, -c(1,16)]$length_ind
 ## Exploratory analysis and data visualization
 
 ```{r}
-klaR::partimat(length_ind ~ age+bmi+SBP+LDL,
-         data = dat, method = "lda")
-
 table(dat$length_ind, dat$study) %>% barplot(main = "Number of cases seperated by 30 days in recovery by Study Groups",
                                              xlab = "Class",
                                              col = c("White","Black"))
@@ -267,9 +264,9 @@ set.seed(1)
 # setting number of trees, depth, learning rate, and default leaves number
 # learning rate = max(0.01, 0.1*(min(1, nl/10000)))
 gbm_grid = expand.grid(
-  n.trees = c(seq(100, 1000, by = 100)),
+  n.trees = c(seq(100, 1200, by = 100)),
   interaction.depth = c(1, 2, 3), 
-  shrinkage = 0.02,
+  shrinkage = c(0.01, 0.03),
   n.minobsinnode = 5
 )
 gbm_model = train(predictors_train, response_train,
