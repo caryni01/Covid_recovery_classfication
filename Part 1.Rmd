@@ -1,6 +1,4 @@
 ---
-title: "Covid Recovery Analysis - Figures and outputs"
-author: "Cary Ni"
 output: 
   pdf_document :
     latex_engine: xelatex
@@ -20,13 +18,14 @@ library(klaR)
 library(rpart.plot)
 library(dplyr)
 knitr::opts_chunk$set(
-  echo = TRUE,
+  echo = FALSE,
   fig.align = 'center',
   out.width = "70%",
   strip.white = TRUE,
   warning = FALSE)
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
+# Appendix -- Primary Analysis of Covid Recovery Time
 
 ```{r}
 # load the external dataset 
@@ -73,13 +72,6 @@ response_test_new = dat[-train_row, -c(1,16)]$length_ind
 ```
 
 ## Exploratory analysis and data visualization
-
-```{r}
-# summary statistics
-dat %>% 
-  skimr::skim() %>% 
-  knitr::knit_print()
-```
 
 ```{r}
 klaR::partimat(length_ind ~ age+bmi+SBP+LDL,
@@ -229,28 +221,8 @@ knn_model = train(predictors_train, response_train,
 knn_model$bestTune
 ```
 
-### Generalized Boosted Regression
-
-```{r}
-set.seed(1)
-# setting number of trees, depth, learning rate, and default leaves number
-# learning rate = max(0.01, 0.1*(min(1, nl/10000)))
-gbm_grid = expand.grid(
-  n.trees = c(seq(100, 1000, by = 100)),
-  interaction.depth = c(1, 2, 3), 
-  shrinkage = 0.02,
-  n.minobsinnode = 5
-)
-gbm_model = train(predictors_train, response_train,
-                  method = "gbm",
-                 preProcess = c("center", "scale"),
-                 trControl = ctrl_1,
-                 tuneGrid = gbm_grid,
-                 verbose = FALSE)
-plot(gbm_model)
-```
-
 ### Regression Tree (CART)
+
 ```{r}
 set.seed(1)
 
@@ -288,6 +260,26 @@ rf_model <- train(recovery_time ~ .,
 # create a plot
 ggplot(rf_model, highlight = TRUE)
 ```
+### Generalized Boosted Regression
+
+```{r}
+set.seed(1)
+# setting number of trees, depth, learning rate, and default leaves number
+# learning rate = max(0.01, 0.1*(min(1, nl/10000)))
+gbm_grid = expand.grid(
+  n.trees = c(seq(100, 1000, by = 100)),
+  interaction.depth = c(1, 2, 3), 
+  shrinkage = 0.02,
+  n.minobsinnode = 5
+)
+gbm_model = train(predictors_train, response_train,
+                  method = "gbm",
+                 preProcess = c("center", "scale"),
+                 trControl = ctrl_1,
+                 tuneGrid = gbm_grid,
+                 verbose = FALSE)
+plot(gbm_model)
+```
 
 ### Models comparsion based on cross validation error
 
@@ -306,10 +298,7 @@ resamp = resamples(list(
 ))
 # plot resampling rmse
 parallelplot(resamp, metric = "RMSE")
-bwplot(resamp, metric = "Rsquared")
 bwplot(resamp, metric = "RMSE")
-summary(resamp) 
-
 
 ```
 
@@ -340,8 +329,11 @@ var_df %>%
 ### Partial dependance plots
 
 ```{r}
-p1 = pdp::partial(gbm_model, pred.var = c("bmi"), 
-                  grid.resolution = 10) %>% autoplot()
+p1 = pdp::partial(gbm_model, pred.var = c("bmi"),
+             grid.resolution = 10) %>% 
+  autoplot(train = predictors_train, rug = TRUE, 
+           main = "Partial dependence plot by BMI") +
+  theme(plot.title = element_text(hjust = 0.5))
 p2 = pdp::partial(gbm_model, pred.var = c("vaccine1"), 
                   grid.resolution = 10) %>% autoplot()
 p3 = pdp::partial(gbm_model, pred.var = c("severity1"), 
@@ -350,4 +342,15 @@ p4 = pdp::partial(gbm_model, pred.var = c("age"),
                   grid.resolution = 10) %>% autoplot()
 
 grid.arrange(arrangeGrob(p1, p4, ncol = 2), arrangeGrob(p2, p3, ncol = 2))
+```
+### Individual Conditional Expectation (ICE) plot
+
+```{r}
+gbm_model %>%
+  pdp::partial(pred.var = "bmi",
+          grid.resolution = 100,
+          ice = TRUE) %>%
+  autoplot(train = predictors_train, alpha = .1) +
+  ggtitle("ICE plot for recovery time versus bmi") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
