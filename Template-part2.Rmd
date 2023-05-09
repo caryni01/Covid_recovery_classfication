@@ -48,6 +48,7 @@ dat = rbind(dat_1, dat_2) %>%
     length_ind = ifelse(recovery_time>30, "yes", "no"),
     length_ind = as.factor(length_ind)
   ) 
+dat$length_ind = relevel(dat$length_ind, ref = "no")
 
 # seperate training set and test set
 set.seed(2023)
@@ -82,6 +83,7 @@ ctrl_2 = trainControl(method = "cv",
                      classProbs = TRUE,
                      summaryFunction = twoClassSummary)
 set.seed(2)
+
 glmnGrid = expand.grid(.alpha = seq(0, 1, length = 21),
                         .lambda = exp(seq(-10, -2, length = 20)))
 
@@ -200,8 +202,10 @@ myCol = rainbow(25)
 myPar = list(superpose.symbol = list(col = myCol),
              superpose.line = list(col = myCol))
 ggplot(svmr_model, highlight = TRUE, par.settings = myPar)
+
 ```
 
+# Figures and Tables for Secondary Analysis 
 ## Models Comparsion based on Area Under Curves
 
 ```{r}
@@ -216,6 +220,7 @@ resamp = resamples(list(
   rpart = rpart_model
 ))
 bwplot(resamp, metric = "ROC")
+
 ```
 
 ## Final model performance on test dataset
@@ -243,15 +248,15 @@ var_df_2 %>%
 
 ```{r}
 pdp::partial(gbmA_model, pred.var = c("bmi"),
-             grid.resolution = 10) %>% 
+             grid.resolution = 10, type = "classification", which.class = "yes", prob = TRUE,) %>% 
   autoplot(train = predictors_train_new, rug = TRUE, 
            main = "Partial dependence plot by BMI") +
   theme(plot.title = element_text(hjust = 0.5))
 
 pdp::partial(gbmA_model, pred.var = c("SBP","LDL"),
              chull = TRUE,
-             grid.resolution = 10) %>% 
-  autoplot(train = predictors_train_new, rug = TRUE,legend.title = "Probability of long recovery time in Logit",
+             grid.resolution = 10, type = "classification", which.class = "yes", prob = TRUE) %>% 
+  autoplot(train = predictors_train_new, rug = TRUE,legend.title = "Probability of long recovery time",
            main = "Partial dependence plot by SBP and LDL") +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -261,9 +266,9 @@ pdp::partial(gbmA_model, pred.var = c("SBP","LDL"),
 gbmA_model %>%
   pdp::partial(pred.var = "bmi",
           grid.resolution = 100,
-          ice = TRUE) %>%
+          ice = TRUE, type = "classification", which.class = "yes", prob = TRUE) %>%
   autoplot(train = predictors_train_new, alpha = .1) +
-  ggtitle("ICE plot for bmi versus probability of long recovery (>30) in logit") +
+  ggtitle("ICE plot for bmi versus probability of long recovery (>30)") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
