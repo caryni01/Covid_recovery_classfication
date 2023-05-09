@@ -294,6 +294,9 @@ resamp = resamples(list(
   cart = rpart_model,
   rf = rf_model
 ))
+
+# summary
+summary(resamp)
 # plot resampling rmse
 parallelplot(resamp, metric = "RMSE")
 bwplot(resamp, metric = "RMSE")
