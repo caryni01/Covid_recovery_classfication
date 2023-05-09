@@ -243,11 +243,11 @@ rpart.plot(rpart_model$finalModel)
 ```{r}
 set.seed(1)
 # build a random forest model
-# mtry: Since mtry should be set to the square root of the total number of predictors for classification problems, and the total number of predictors divided by three. With 15 predictors, the optimal tuning range for mtry would be between 3 and 5.
+# mtry: Since mtry should be set to the square root of the total number of predictors for classification problems, and the total number of predictors divided by three. With 18 predictors, the optimal tuning range for mtry would be between 4 and 6.
  
-rf_grid <- expand.grid(mtry = 3:5,
+rf_grid <- expand.grid(mtry = 4:6,
                        splitrule = "variance",
-                       min.node.size = 3:6)
+                       min.node.size = 3:8)
 
 rf_model <- train(recovery_time ~ .,
                 dat[train_row, -c(1,17)],
@@ -258,6 +258,7 @@ rf_model <- train(recovery_time ~ .,
 # create a plot
 ggplot(rf_model, highlight = TRUE)
 ```
+
 ### Generalized Boosted Regression
 
 ```{r}
@@ -294,6 +295,9 @@ resamp = resamples(list(
   cart = rpart_model,
   rf = rf_model
 ))
+
+# Summary 
+summary(resamp)
 # plot resampling rmse
 parallelplot(resamp, metric = "RMSE")
 bwplot(resamp, metric = "RMSE")
@@ -333,11 +337,20 @@ p1 = pdp::partial(gbm_model, pred.var = c("bmi"),
            main = "Partial dependence plot by BMI") +
   theme(plot.title = element_text(hjust = 0.5))
 p2 = pdp::partial(gbm_model, pred.var = c("vaccine1"), 
-                  grid.resolution = 10) %>% autoplot()
+                  grid.resolution = 10) %>% 
+  autoplot(train = predictors_train, rug = TRUE, 
+           main = "Partial dependence plot by Vaccine1") +
+  theme(plot.title = element_text(hjust = 0.5))
 p3 = pdp::partial(gbm_model, pred.var = c("severity1"), 
-                  grid.resolution = 10) %>% autoplot()
+                  grid.resolution = 10) %>% 
+    autoplot(train = predictors_train, rug = TRUE, 
+           main = "Partial dependence plot by Severity1") +
+  theme(plot.title = element_text(hjust = 0.5))
 p4 = pdp::partial(gbm_model, pred.var = c("age"), 
-                  grid.resolution = 10) %>% autoplot()
+                  grid.resolution = 10) %>% 
+    autoplot(train = predictors_train, rug = TRUE, 
+           main = "Partial dependence plot by Age") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 grid.arrange(arrangeGrob(p1, p4, ncol = 2), arrangeGrob(p2, p3, ncol = 2))
 ```
